@@ -1,81 +1,81 @@
 {
-  "summary": "You are in a great position to start exploring careers while finishing school in KwaZulu-Natal. Since you have a smartphone and need free options that do not require moving, you can build practical digital skills right from home. We have chosen paths that fit your Maths Literacy background and allow you to learn at your own pace without high costs.",
+  "summary": "You have solid leadership experience and basic computer skills, which are great assets as you complete your high school journey. Since you need free options, study from a smartphone with limited data, and cannot relocate from KwaZulu-Natal, there are flexible, remote pathways to explore. These steps will let you test digital career fields at no cost before making your next big decision.",
   "direction": {
-    "title": "Digital Skills and IT Support Pathways",
-    "why": "It gives you a gentle, practical entry into technology without requiring Pure Maths or costly computer equipment right away. Exploring digital tools will help you find what you enjoy most while making you ready for entry-level tech programmes."
+    "title": "Digital Skills and Tech Support Exploration",
+    "why": "Because you are not sure what direction to take yet, learning digital fundamentals allows you to explore various career paths without needing Pure Maths. It lets you build confidence using the smartphone you already have while figuring out what you enjoy most."
   },
   "skills_you_have": [
     {
-      "skill": "Basic computer skills",
-      "note": "Knowing your way around basic digital tools is a great foundation to start learning online."
+      "skill": "Leadership and social influence",
+      "note": "You already have proven experience taking responsibility and guiding others through your school, church, or community activities."
     },
     {
-      "skill": "Leadership and social influence",
-      "note": "You have practical experience guiding others through volunteering or community roles, which employers value highly."
+      "skill": "Basic computer skills",
+      "note": "You have a starting foundation in using digital tools, which is essential for any modern workplace."
     }
   ],
   "skills_to_build": [
     {
       "skill": "Technological literacy",
-      "why": "It is the third-fastest-growing skill with a net increase of 68, and 51% of employers consider it a core skill today.",
-      "how": "Complete free introductory digital courses on your smartphone through mobile-friendly platforms."
+      "why": "It is the third-fastest-growing skill globally, with 51% of employers considering it a core skill today.",
+      "how": "Complete introductory digital and career modules through accessible smartphone platforms."
     },
     {
       "skill": "Networks and cybersecurity",
-      "why": "It is the second-fastest-growing skill with a net increase of 70, and roles like ICT Security Specialist are on South Africa's national list of occupations in high demand.",
-      "how": "Start with beginner-level networking and security concepts through free online modules."
+      "why": "Employers are rapidly seeking these skills; ICT Security Specialist and Computer Network and Systems Engineer are on South Africa's national list of occupations in high demand.",
+      "how": "Start with self-paced beginner online courses that explain how networks and digital protection work."
     }
   ],
   "soft_skills": [
     {
       "skill": "Leadership and social influence",
       "proof_status": "has proof",
-      "advice": "Keep records of your community, school, or church leadership activities so you can use them as references on your CV."
+      "advice": "Keep records of your community, club, or church responsibilities on your CV to demonstrate your teamwork and initiative."
     },
     {
       "skill": "Empathy and active listening",
       "proof_status": "no proof yet",
-      "advice": "You can demonstrate this skill by working on group tasks, supporting peers in study circles, or participating in community projects."
+      "advice": "Use team-based projects or volunteer mentoring roles to show employers how you listen to others and help solve group problems."
     },
     {
       "skill": "Curiosity and lifelong learning",
       "proof_status": "no proof yet",
-      "advice": "Finishing self-paced short courses on platforms like MTN Skills Academy will serve as proof that you take initiative to learn on your own."
+      "advice": "Earning self-paced digital badges through free programmes like MTN Skills Academy or Cisco Skills for All will show employers you take initiative to learn."
     }
   ],
   "programmes": [
     {
       "id": "mtn-skills-academy",
       "route": "Online learning",
-      "why_it_fits": "It is completely free, online, and accessible from a smartphone, making it ideal if you have limited data and want career guidance.",
-      "what_you_meet": "It is open to anyone and starts with a career guidance questionnaire to help you figure out what you like.",
-      "what_to_check": "Check the official platform to sign up and see which specific mobile-friendly courses interest you."
+      "why_it_fits": "It is completely free, runs online, and starts with a career guidance questionnaire that helps you figure out your interests directly from your phone.",
+      "what_you_meet": "You meet the open audience requirement; anyone can sign up for free without pre-requisites.",
+      "what_to_check": "Check their official website to register and confirm how well the portal runs on mobile data."
     },
     {
       "id": "cisco-skills-for-all",
       "route": "Online learning",
-      "why_it_fits": "It offers free self-paced training in networking and cybersecurity, allowing you to explore technical fields from home at zero cost.",
-      "what_you_meet": "There are no formal entry requirements or matric certificates needed to start learning.",
-      "what_to_check": "Check how well each course runs on a smartphone browser and monitor your data usage while studying."
+      "why_it_fits": "This offers free, self-paced learning in cybersecurity and networking that you can study from home in KwaZulu-Natal without travel costs.",
+      "what_you_meet": "There are no formal matric or math requirements stated, making it accessible while you finish school.",
+      "what_to_check": "Check the official Cisco Skills for All website to see data consumption and smartphone browser compatibility."
     },
     {
       "id": "umuzi-learnership",
-      "route": "Alternative to university",
-      "why_it_fits": "This learnership is fully remote, meaning you can train for tech jobs from KwaZulu-Natal without having to relocate.",
-      "what_you_meet": "You are within the 18-35 age bracket and a South African citizen.",
-      "what_to_check": "It requires a completed Grade 12 certificate (NQF 4) and an aptitude test, so keep it on your radar to apply once you complete matric. Check their official page for data and computer support details."
+      "route": "Funded learnership",
+      "why_it_fits": "It is fully remote and provides an alternative to traditional university by training you for tech roles without requiring you to move.",
+      "what_you_meet": "You are in the 18-24 age group and can apply once you complete Grade 12.",
+      "what_to_check": "You need a Grade 12 certificate (NQF 4) to qualify, so you must pass matric first. Check umuzi.org for aptitude test details, computer equipment support, and data provisions, as costs are not stated."
     },
     {
       "id": "nsfas-2027",
       "route": "Funded study",
-      "why_it_fits": "If you decide to study further at a public TVET college or university after matric, NSFAS provides bursary funding for eligible students who need free study options.",
-      "what_you_meet": "Available to matric learners planning to study at public higher education institutions.",
-      "what_to_check": "Check nsfas.org.za for exact financial eligibility criteria and note that you must apply separately for college or university admission."
+      "why_it_fits": "If you decide to study full-time at a public TVET college or university after matric, NSFAS provides free bursary and loan funding for qualifying students.",
+      "what_you_meet": "As a Grade 11/12 learner planning ahead, you can prepare your documentation early.",
+      "what_to_check": "Applying to an institution and applying for NSFAS are separate steps. Check nsfas.org.za for exact eligibility criteria, and note that the 2027 cycle dates closed on 31 October 2026, so you must check for the next open application window."
     }
   ],
   "next_steps": [
-    "Sign up on the MTN Skills Academy website using your smartphone and take the career guidance questionnaire.",
-    "Try a free beginner module on Cisco Skills for All to see if networking or cybersecurity sparks your interest.",
-    "Focus on completing your Grade 12 successfully so you qualify for remote learnerships like Umuzi and funded TVET courses."
+    "Sign up on the MTN Skills Academy platform using your smartphone to take their free career guidance assessment.",
+    "Focus on passing your Grade 12 certificate, as it unlocks funded pathways like Umuzi and NSFAS-backed college programmes.",
+    "Explore a free beginner cybersecurity topic on Cisco Skills for All to see if digital and tech support work excites you."
   ]
 }

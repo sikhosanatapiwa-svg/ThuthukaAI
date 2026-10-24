@@ -1,7 +1,8 @@
 import json
 import os
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -13,6 +14,11 @@ FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 PLACEHOLDER = "Select..."
 
 st.set_page_config(page_title="THUTHUKA-AI", page_icon="🧭")
+
+# What the student has saved, applied for or snoozed (kept for this visit)
+st.session_state.setdefault("interested", [])
+st.session_state.setdefault("applied", [])
+st.session_state.setdefault("snoozed", {})
 
 # Load the vetted programme list
 with open("programmes.json", encoding="utf-8") as f:
@@ -93,6 +99,11 @@ COST = [
     "A stipend would help",
     "I can pay for some things",
 ]
+# The question widgets whose values we remember when the student changes screen
+ANSWER_KEYS = [
+    "age", "stage", "province", "maths", "interests", "tech_skills",
+    "soft_skills", "devices", "data_access", "mobility", "cost",
+]
 
 # ---------- What the AI is allowed to see ----------
 # Only the fields it needs. Notes, links and check dates stay out.
@@ -128,6 +139,7 @@ OUTPUT_FORMAT = """{
 }"""
 
 
+# ---------- AI ----------
 def parse_ai_json(text):
     """Turns the AI's reply into a Python dictionary, even if it adds code fences."""
     text = text.strip()
@@ -185,6 +197,7 @@ def build_pathway(profile):
     raise last_error
 
 
+# ---------- Dates and reminders ----------
 def sa_today():
     """Today's date in South Africa (UTC+2, no daylight saving)."""
     return datetime.now(timezone(timedelta(hours=2))).date()
@@ -193,6 +206,10 @@ def sa_today():
 def nice_date(iso_date):
     """Turns 2026-10-31 into '31 October 2026'."""
     return datetime.strptime(iso_date, "%Y-%m-%d").strftime("%d %B %Y").lstrip("0")
+
+
+def to_date(iso_date):
+    return datetime.strptime(iso_date, "%Y-%m-%d").date() if iso_date else None
 
 
 def days_left(p):
@@ -224,8 +241,125 @@ def show_deadline(p):
         st.caption(f"Closes {when} ({days} days left).")
 
 
+def current_demo_date():
+    """The date the demo slider is set to (today if it hasn't been used yet)."""
+    value = st.session_state.get("demo_date")
+    return value if value else sa_today()
+
+
+def reminder_status(p, demo_date, applied, snoozed_until):
+    """Works out which notification a saved programme should show on the demo date.
+    Returns (state, days_until_deadline)."""
+    opens = to_date(p.get("demo_opens"))
+    deadline = to_date(p.get("demo_deadline"))
+    if not opens or not deadline:
+        return "always_open", None
+    days = (deadline - demo_date).days
+    if demo_date < opens:
+        return "not_open", days
+    if days < 0:
+        return ("applied" if applied else "closed"), days
+    if applied:
+        return "applied", days
+    if days <= 10:
+        if snoozed_until and demo_date < snoozed_until:
+            return "snoozed", days
+        return "ask", days
+    return "open", days
+
+
+def status_label(state, days):
+    """A short status for the Saved tab."""
+    if state == "always_open":
+        return "Open all year"
+    if state == "not_open":
+        return "Not open yet"
+    if state == "open":
+        return f"Open. Closes in {days} days"
+    if state in ("ask", "snoozed"):
+        return f"Closing soon: {days} day{'s' if days != 1 else ''} left"
+    if state == "closed":
+        return "Closed"
+    return "Applied"
+
+
+# ---------- Buttons that change what the student has saved ----------
+def toggle_interest(pid):
+    """Saves a programme to 'Saved', or removes it."""
+    if pid in st.session_state["interested"]:
+        st.session_state["interested"].remove(pid)
+    else:
+        st.session_state["interested"].append(pid)
+
+
+def mark_applied(pid):
+    """The student says they applied, so the reminders stop."""
+    if pid not in st.session_state["applied"]:
+        st.session_state["applied"].append(pid)
+
+
+def unmark_applied(pid):
+    """Undo, in case 'applied' was tapped by mistake."""
+    if pid in st.session_state["applied"]:
+        st.session_state["applied"].remove(pid)
+
+
+def snooze_reminder(pid):
+    """The student says 'not yet', so we ask again in 3 days."""
+    st.session_state["snoozed"][pid] = current_demo_date() + timedelta(days=3)
+
+
+def remove_saved(pid):
+    if pid in st.session_state["interested"]:
+        st.session_state["interested"].remove(pid)
+
+
+# ---------- Remembering answers when the student changes screen ----------
+def keep(extra_keys=()):
+    """Remembers widget values so they survive a change of screen."""
+    wanted = set(ANSWER_KEYS) | set(extra_keys)
+    for key in list(st.session_state.keys()):
+        if key in wanted or key.startswith("proof_"):
+            st.session_state["_saved_" + key] = st.session_state[key]
+
+
+def restore():
+    """Puts remembered values back before the widgets are drawn."""
+    for key in list(st.session_state.keys()):
+        if key.startswith("_saved_"):
+            real_key = key[len("_saved_"):]
+            if real_key not in st.session_state:
+                st.session_state[real_key] = st.session_state[key]
+
+
+# ---------- Demo persona ----------
+def load_demo_persona():
+    """Fills the form with Thando, the demo learner from Mandeni."""
+    st.session_state["age"] = "18-24"
+    st.session_state["stage"] = "Grade 11 or 12"
+    st.session_state["province"] = "KwaZulu-Natal"
+    st.session_state["maths"] = "Maths Literacy"
+    st.session_state["interests"] = ["I'm not sure yet"]
+    st.session_state["tech_skills"] = "Basic computer skills"
+    st.session_state["soft_skills"] = [
+        "Leadership and social influence",
+        "Empathy and active listening",
+        "Curiosity and lifelong learning",
+    ]
+    st.session_state["proof_Leadership and social influence"] = (
+        "A leadership role or volunteering (school, club, church, community)"
+    )
+    st.session_state["proof_Empathy and active listening"] = "Not yet"
+    st.session_state["proof_Curiosity and lifelong learning"] = "Not yet"
+    st.session_state["devices"] = ["Smartphone"]
+    st.session_state["data_access"] = "Limited data"
+    st.session_state["mobility"] = "I can study full-time but cannot move"
+    st.session_state["cost"] = "Free only"
+
+
+# ---------- Showing the pathway ----------
 def render_pathway(pathway):
-    """Shows the AI's pathway on the page. Programme details come from our own data."""
+    """Shows the AI's pathway. Programme details come from our own data, not the AI."""
     st.header("Your pathway")
     st.write(pathway.get("summary", ""))
 
@@ -302,6 +436,13 @@ def render_pathway(pathway):
                     "Details from a government source. Confirm on the official page.")
             if p.get("link"):
                 st.link_button("Open official page", p["link"])
+            saved = p["id"] in st.session_state["interested"]
+            st.button(
+                "Remove from saved" if saved else "Save this programme",
+                key=f"interest_{p['id']}",
+                on_click=toggle_interest,
+                args=(p["id"],),
+            )
     if dropped:
         st.caption(
             f"{dropped} suggestion(s) were removed because they weren't in our vetted list.")
@@ -316,161 +457,317 @@ def render_pathway(pathway):
         "Always confirm dates and requirements on the official page before you apply.")
 
 
-# ---------- Demo persona ----------
-def load_demo_persona():
-    """Fills the form with Thando, the demo learner from Mandeni."""
-    st.session_state["age"] = "18-24"
-    st.session_state["stage"] = "Grade 11 or 12"
-    st.session_state["province"] = "KwaZulu-Natal"
-    st.session_state["maths"] = "Maths Literacy"
-    st.session_state["interests"] = ["I'm not sure yet"]
-    st.session_state["tech_skills"] = "Basic computer skills"
-    st.session_state["soft_skills"] = [
-        "Leadership and social influence",
-        "Empathy and active listening",
-        "Curiosity and lifelong learning",
-    ]
-    st.session_state["proof_Leadership and social influence"] = (
-        "A leadership role or volunteering (school, club, church, community)"
-    )
-    st.session_state["proof_Empathy and active listening"] = "Not yet"
-    st.session_state["proof_Curiosity and lifelong learning"] = "Not yet"
-    st.session_state["devices"] = ["Smartphone"]
-    st.session_state["data_access"] = "Limited data"
-    st.session_state["mobility"] = "I can study full-time but cannot move"
-    st.session_state["cost"] = "Free only"
-
-
-# ---------- Page ----------
-st.title("THUTHUKA-AI")
-st.write("Answer a few quick questions and get a personalised career pathway.")
-st.caption(
-    "Demo only: please don't enter real personal details. "
-    "We don't ask for your name, ID number or contact details."
-)
-st.caption(
-    f"{len(programmes)} vetted programmes and {len(skills_data)} skills loaded.")
-
-st.button("Fill with demo learner (Thando)", on_click=load_demo_persona)
-
-st.subheader("About you")
-st.selectbox("1. Which age group are you in?", AGE_BANDS, key="age")
-if st.session_state.get("age") == "Under 18":
-    st.info(
-        "Some programmes need a parent or guardian's consent, "
-        "and some have a minimum age."
-    )
-st.selectbox("2. Where are you right now?", STAGES, key="stage")
-st.selectbox("3. Which province are you in?", PROVINCES, key="province")
-st.selectbox("4. What is your matric maths?", MATHS, key="maths")
-
-st.subheader("Your interests and skills")
-st.multiselect("5. What interests you? (pick any)", INTERESTS, key="interests")
-st.radio("6. What tech skills do you have so far?",
-         TECH_SKILLS, key="tech_skills")
-st.multiselect(
-    "7. Which of these soft skills do you have? (pick any)",
-    SOFT_SKILLS,
-    key="soft_skills",
-)
-
-selected_soft_skills = st.session_state.get("soft_skills", [])
-if selected_soft_skills:
-    st.markdown("**8. Do you have proof for these skills?**")
+# ---------- Screen 1: the questions ----------
+def show_questions():
+    restore()
+    st.caption("Step 1 of 3: Your answers")
+    st.write("Answer a few quick questions and get a personalised career pathway.")
     st.caption(
-        "'Not yet' is a fine answer. We'll help you find ways to earn proof.")
-    for skill in selected_soft_skills:
-        st.selectbox(f"Proof for: {skill}",
-                     PROOF_OPTIONS, key=f"proof_{skill}")
+        "Demo only: please don't enter real personal details. "
+        "We don't ask for your name, ID number or contact details."
+    )
+    st.caption(
+        f"{len(programmes)} vetted programmes and {len(skills_data)} skills loaded.")
 
-st.subheader("Your situation")
-st.multiselect("9a. What do you have access to?", DEVICES, key="devices")
-st.selectbox("9b. How do you get online?", DATA_ACCESS, key="data_access")
-st.selectbox("10a. Could you study full-time or move?",
-             MOBILITY, key="mobility")
-st.selectbox("10b. Do you need free or funded options?", COST, key="cost")
+    if st.session_state.get("pathway"):
+        if st.button("Skip to my pathway →", key="skip_to_pathway"):
+            st.switch_page(PAGES["pathway"])
 
-st.caption("Your answers are sent to an AI service to build your pathway.")
+    st.button("Fill with demo learner (Thando)", on_click=load_demo_persona)
 
-# ---------- Submit ----------
-if st.button("Build my pathway", type="primary"):
-    required = {
-        "age": "age group",
-        "stage": "where you are right now",
-        "province": "province",
-        "maths": "matric maths",
-        "data_access": "how you get online",
-        "mobility": "study and moving",
-        "cost": "free or funded options",
-    }
-    missing = [
-        label
-        for key, label in required.items()
-        if st.session_state.get(key) in (None, PLACEHOLDER)
-    ]
-    if not st.session_state.get("interests"):
-        missing.append("interests")
-    if not st.session_state.get("devices"):
-        missing.append("what you have access to")
+    st.subheader("About you")
+    st.selectbox("1. Which age group are you in?", AGE_BANDS, key="age")
+    if st.session_state.get("age") == "Under 18":
+        st.info(
+            "Some programmes need a parent or guardian's consent, "
+            "and some have a minimum age."
+        )
+    st.selectbox("2. Where are you right now?", STAGES, key="stage")
+    st.selectbox("3. Which province are you in?", PROVINCES, key="province")
+    st.selectbox("4. What is your matric maths?", MATHS, key="maths")
 
-    if missing:
-        st.warning("Please answer: " + ", ".join(missing) + ".")
-    else:
-        profile = {
-            "age_band": st.session_state["age"],
-            "stage": st.session_state["stage"],
-            "province": st.session_state["province"],
-            "matric_maths": st.session_state["maths"],
-            "interests": st.session_state["interests"],
-            "tech_skills": st.session_state["tech_skills"],
-            "soft_skills": [
-                {"skill": s, "proof": st.session_state.get(
-                    f"proof_{s}", "Not yet")}
-                for s in selected_soft_skills
-            ],
-            "devices": st.session_state["devices"],
-            "data_access": st.session_state["data_access"],
-            "mobility": st.session_state["mobility"],
-            "cost_preference": st.session_state["cost"],
+    st.subheader("Your interests and skills")
+    st.multiselect("5. What interests you? (pick any)",
+                   INTERESTS, key="interests")
+    st.radio("6. What tech skills do you have so far?",
+             TECH_SKILLS, key="tech_skills")
+    st.multiselect(
+        "7. Which of these soft skills do you have? (pick any)",
+        SOFT_SKILLS,
+        key="soft_skills",
+    )
+
+    selected_soft_skills = st.session_state.get("soft_skills", [])
+    if selected_soft_skills:
+        st.markdown("**8. Do you have proof for these skills?**")
+        st.caption(
+            "'Not yet' is a fine answer. We'll help you find ways to earn proof.")
+        for skill in selected_soft_skills:
+            st.selectbox(f"Proof for: {skill}",
+                         PROOF_OPTIONS, key=f"proof_{skill}")
+
+    st.subheader("Your situation")
+    st.multiselect("9a. What do you have access to?", DEVICES, key="devices")
+    st.selectbox("9b. How do you get online?", DATA_ACCESS, key="data_access")
+    st.selectbox("10a. Could you study full-time or move?",
+                 MOBILITY, key="mobility")
+    st.selectbox("10b. Do you need free or funded options?", COST, key="cost")
+
+    # Remember everything typed so far, in case the student changes screen
+    keep()
+
+    st.caption("Your answers are sent to an AI service to build your pathway.")
+
+    if st.button("Build my pathway", type="primary"):
+        required = {
+            "age": "age group",
+            "stage": "where you are right now",
+            "province": "province",
+            "maths": "matric maths",
+            "data_access": "how you get online",
+            "mobility": "study and moving",
+            "cost": "free or funded options",
         }
-        st.session_state["profile"] = profile
-        st.session_state.pop("pathway", None)
-        st.session_state.pop("pathway_error", None)
-        st.session_state.pop("pathway_is_saved", None)
-        with st.spinner("Building your pathway..."):
-            try:
-                st.session_state["pathway"] = build_pathway(profile)
-            except Exception as error:
-                st.session_state["pathway_error"] = str(error)
+        missing = [
+            label
+            for key, label in required.items()
+            if st.session_state.get(key) in (None, PLACEHOLDER)
+        ]
+        if not st.session_state.get("interests"):
+            missing.append("interests")
+        if not st.session_state.get("devices"):
+            missing.append("what you have access to")
 
-# ---------- Result ----------
-if st.session_state.get("pathway_error"):
-    st.error("We couldn't build your pathway just now. Please try again in a moment.")
-    with st.expander("Technical details"):
-        st.write(st.session_state["pathway_error"])
-    if os.path.exists("demo_pathway.json"):
-        if st.button("Show a saved example instead"):
-            with open("demo_pathway.json", encoding="utf-8") as f:
-                st.session_state["pathway"] = json.load(f)
-            st.session_state["pathway_is_saved"] = True
+        if missing:
+            st.warning("Please answer: " + ", ".join(missing) + ".")
+        else:
+            profile = {
+                "age_band": st.session_state["age"],
+                "stage": st.session_state["stage"],
+                "province": st.session_state["province"],
+                "matric_maths": st.session_state["maths"],
+                "interests": st.session_state["interests"],
+                "tech_skills": st.session_state["tech_skills"],
+                "soft_skills": [
+                    {"skill": s, "proof": st.session_state.get(
+                        f"proof_{s}", "Not yet")}
+                    for s in selected_soft_skills
+                ],
+                "devices": st.session_state["devices"],
+                "data_access": st.session_state["data_access"],
+                "mobility": st.session_state["mobility"],
+                "cost_preference": st.session_state["cost"],
+            }
+            st.session_state["profile"] = profile
+            st.session_state.pop("pathway", None)
             st.session_state.pop("pathway_error", None)
-            st.rerun()
+            st.session_state.pop("pathway_is_saved", None)
+            with st.spinner("Matching you with verified programmes. This usually takes 30 to 60 seconds..."):
+                try:
+                    st.session_state["pathway"] = build_pathway(profile)
+                except Exception as error:
+                    st.session_state["pathway_error"] = str(error)
+            if st.session_state.get("pathway"):
+                st.switch_page(PAGES["pathway"])
 
-if st.session_state.get("pathway"):
+    if st.session_state.get("pathway_error"):
+        st.error(
+            "We couldn't build your pathway just now. Please try again in a moment.")
+        with st.expander("Technical details"):
+            st.write(st.session_state["pathway_error"])
+        if os.path.exists("demo_pathway.json"):
+            if st.button("Show a saved example instead"):
+                with open("demo_pathway.json", encoding="utf-8") as f:
+                    st.session_state["pathway"] = json.load(f)
+                st.session_state["pathway_is_saved"] = True
+                st.session_state.pop("pathway_error", None)
+                st.switch_page(PAGES["pathway"])
+
+
+# ---------- Screen 2: the pathway ----------
+def show_pathway():
+    st.caption("Step 2 of 3: Your pathway")
+    pathway = st.session_state.get("pathway")
+    if not pathway:
+        st.info("You don't have a pathway yet. Answer the questions first.")
+        if st.button("← Back to my answers", key="p_back_none"):
+            st.switch_page(PAGES["questions"])
+        return
+
+    col_back, col_go = st.columns(2)
+    if col_back.button("← Back to my answers", key="p_back_top"):
+        st.switch_page(PAGES["questions"])
+    if col_go.button("Go to my app →", key="p_go_top", type="primary"):
+        st.switch_page(PAGES["app"])
+
     if st.session_state.get("pathway_is_saved"):
         st.info("This is a saved example for our demo learner, not a live result.")
-    render_pathway(st.session_state["pathway"])
+    render_pathway(pathway)
+
+    st.divider()
+    st.write(
+        "Happy with your pathway? Save the programmes you like, then open your app.")
+    col_back2, col_go2 = st.columns(2)
+    if col_back2.button("← Back to my answers", key="p_back_bottom"):
+        st.switch_page(PAGES["questions"])
+    if col_go2.button("Go to my app →", key="p_go_bottom", type="primary"):
+        st.switch_page(PAGES["app"])
+
     if not st.session_state.get("pathway_is_saved"):
         with st.expander("Team tools"):
             st.caption("Save a good result as the demo fallback.")
             st.download_button(
                 "Download this pathway as demo_pathway.json",
-                data=json.dumps(
-                    st.session_state["pathway"], indent=2, ensure_ascii=False),
+                data=json.dumps(pathway, indent=2, ensure_ascii=False),
                 file_name="demo_pathway.json",
                 mime="application/json",
             )
+    if "profile" in st.session_state:
+        with st.expander("See your profile"):
+            st.json(st.session_state["profile"])
 
-if "profile" in st.session_state:
-    with st.expander("See your profile"):
-        st.json(st.session_state["profile"])
+
+# ---------- Screen 3: the app ----------
+def show_app():
+    restore()
+    today = sa_today()
+    if st.session_state.get("demo_date") and st.session_state["demo_date"] < today:
+        st.session_state["demo_date"] = today
+
+    st.caption("Step 3 of 3: Your app")
+    slider_options = {
+        "min_value": today,
+        "max_value": date(2027, 8, 31),
+        "format": "D MMM YYYY",
+        "key": "demo_date",
+    }
+    if "demo_date" not in st.session_state:
+        slider_options["value"] = today
+    demo_date = st.slider(
+        "Demo date: move it forward to see how reminders work", **slider_options)
+    keep(["demo_date"])
+
+    saved_ids = [pid for pid in st.session_state["interested"]
+                 if pid in programmes_by_id]
+    applied_ids = [pid for pid in st.session_state["applied"]
+                   if pid in programmes_by_id]
+    waiting_ids = [pid for pid in saved_ids if pid not in applied_ids]
+
+    tab_pathway, tab_saved, tab_reminders, tab_applied = st.tabs([
+        "My pathway",
+        f"Saved ({len(waiting_ids)})",
+        "Reminders",
+        f"Applied ({len(applied_ids)})",
+    ])
+
+    with tab_pathway:
+        pathway = st.session_state.get("pathway")
+        if pathway:
+            render_pathway(pathway)
+        else:
+            st.info("No pathway yet.")
+        if st.button("Change my answers", key="app_change_answers"):
+            st.switch_page(PAGES["questions"])
+
+    with tab_saved:
+        if not waiting_ids:
+            st.caption(
+                "Nothing saved yet. Save programmes from your pathway and they'll appear here.")
+        for pid in waiting_ids:
+            p = programmes_by_id[pid]
+            state, days = reminder_status(
+                p, demo_date, False, st.session_state["snoozed"].get(pid)
+            )
+            with st.container(border=True):
+                st.markdown(f"**{p['name']}**")
+                st.caption(f"{p['provider']} · {p['type']}")
+                st.write(status_label(state, days))
+                col_a, col_b = st.columns(2)
+                col_a.button(
+                    "I've applied", key=f"applied_{pid}", on_click=mark_applied, args=(pid,))
+                col_b.button(
+                    "Remove", key=f"remove_{pid}", on_click=remove_saved, args=(pid,))
+                if p.get("link"):
+                    st.markdown(f"[Open official page]({p['link']})")
+
+    with tab_reminders:
+        st.caption(
+            f"Reminders as they would appear on {nice_date(demo_date.isoformat())}.")
+        shown = 0
+        for pid in waiting_ids:
+            p = programmes_by_id[pid]
+            snoozed_until = st.session_state["snoozed"].get(pid)
+            state, days = reminder_status(p, demo_date, False, snoozed_until)
+            if state == "always_open":
+                continue
+            shown += 1
+            with st.container(border=True):
+                st.markdown(f"**{p['name']}**")
+                if p.get("dates_are_sample"):
+                    st.caption(
+                        "Sample dates for the demo. Real dates are on the official page.")
+                opens = nice_date(p["demo_opens"])
+                closes = nice_date(p["demo_deadline"])
+                if state == "not_open":
+                    st.info(
+                        f"Not open yet. We'll tell you when applications open (expected {opens}).")
+                elif state == "open":
+                    st.success(
+                        f"Applications are now open! They close on {closes}.")
+                elif state == "ask":
+                    st.warning(
+                        f"**{days} day{'s' if days != 1 else ''} left** to apply "
+                        f"(closes {closes}). Have you applied?"
+                    )
+                    col_yes, col_no = st.columns(2)
+                    col_yes.button(
+                        "Yes, I applied", key=f"yes_{pid}", on_click=mark_applied, args=(pid,)
+                    )
+                    col_no.button(
+                        "Not yet", key=f"no_{pid}", on_click=snooze_reminder, args=(pid,)
+                    )
+                elif state == "snoozed":
+                    again = snoozed_until.strftime("%d %B %Y").lstrip("0")
+                    st.info(
+                        f"{days} day{'s' if days != 1 else ''} left. "
+                        f"You said not yet, so we'll remind you again on {again}."
+                    )
+                elif state == "closed":
+                    st.info(
+                        f"This deadline passed on {closes}. Check the official page for the next intake.")
+                if p.get("link"):
+                    st.markdown(f"[Open official page]({p['link']})")
+        if not shown:
+            st.caption(
+                "No reminders right now. Save programmes with deadlines to get reminders.")
+
+    with tab_applied:
+        if not applied_ids:
+            st.caption("Programmes you've applied for will appear here.")
+        for pid in applied_ids:
+            p = programmes_by_id[pid]
+            with st.container(border=True):
+                st.markdown(f"**{p['name']}**")
+                st.caption(f"{p['provider']} · {p['type']}")
+                st.success("You told us you've applied. Good luck!")
+                st.button("Undo", key=f"undo_{pid}",
+                          on_click=unmark_applied, args=(pid,))
+                if p.get("link"):
+                    st.markdown(f"[Open official page]({p['link']})")
+
+
+# ---------- Pages ----------
+# Each step is its own Streamlit page. Switching page opens the new step at the top.
+PAGES = {
+    "questions": st.Page(show_questions, title="Your answers", default=True),
+    "pathway": st.Page(show_pathway, title="Your pathway", url_path="pathway"),
+    "app": st.Page(show_app, title="Your app", url_path="app"),
+}
+
+st.title("THUTHUKA-AI")
+
+try:
+    navigation = st.navigation(list(PAGES.values()), position="hidden")
+except Exception:
+    navigation = st.navigation(list(PAGES.values()))
+navigation.run()
