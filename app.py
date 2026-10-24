@@ -1,5 +1,7 @@
 import json
+import os
 import time
+from datetime import datetime, timedelta, timezone
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -183,6 +185,45 @@ def build_pathway(profile):
     raise last_error
 
 
+def sa_today():
+    """Today's date in South Africa (UTC+2, no daylight saving)."""
+    return datetime.now(timezone(timedelta(hours=2))).date()
+
+
+def nice_date(iso_date):
+    """Turns 2026-10-31 into '31 October 2026'."""
+    return datetime.strptime(iso_date, "%Y-%m-%d").strftime("%d %B %Y").lstrip("0")
+
+
+def days_left(p):
+    """Days until a REAL deadline. Returns None if the date is a sample or missing."""
+    if p.get("dates_are_sample") or not p.get("demo_deadline"):
+        return None
+    try:
+        deadline = datetime.strptime(p["demo_deadline"], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    return (deadline - sa_today()).days
+
+
+def show_deadline(p):
+    """Shows a clear deadline line on a programme card (real dates only)."""
+    days = days_left(p)
+    if days is None:
+        return
+    when = nice_date(p["demo_deadline"])
+    if days < 0:
+        st.info(
+            f"This deadline passed on {when}. Check the official page for the next intake.")
+    elif days == 0:
+        st.warning(f"**Closes today ({when}).**")
+    elif days <= 14:
+        st.warning(
+            f"**Closes {when}: {days} day{'s' if days != 1 else ''} left.**")
+    else:
+        st.caption(f"Closes {when} ({days} days left).")
+
+
 def render_pathway(pathway):
     """Shows the AI's pathway on the page. Programme details come from our own data."""
     st.header("Your pathway")
@@ -221,9 +262,21 @@ def render_pathway(pathway):
             )
 
     st.subheader("Programmes for you")
+    matched = [(item, programmes_by_id.get(item.get("id")))
+               for item in pathway.get("programmes", [])]
+
+    closing_soon = []
+    for item, p in matched:
+        if p:
+            days = days_left(p)
+            if days is not None and 0 <= days <= 14:
+                closing_soon.append(
+                    f"{p['name']} ({days} day{'s' if days != 1 else ''} left)")
+    if closing_soon:
+        st.warning("**Closing soon:** " + "; ".join(closing_soon))
+
     dropped = 0
-    for item in pathway.get("programmes", []):
-        p = programmes_by_id.get(item.get("id"))
+    for item, p in matched:
         if not p:
             dropped += 1
             continue
@@ -231,6 +284,7 @@ def render_pathway(pathway):
             st.markdown(f"**{p['name']}**")
             st.caption(
                 f"{p['provider']} · {p['type']} · {item.get('route', '')}")
+            show_deadline(p)
             st.write(item.get("why_it_fits", ""))
             if item.get("what_you_meet"):
                 st.markdown(
@@ -382,6 +436,7 @@ if st.button("Build my pathway", type="primary"):
         st.session_state["profile"] = profile
         st.session_state.pop("pathway", None)
         st.session_state.pop("pathway_error", None)
+        st.session_state.pop("pathway_is_saved", None)
         with st.spinner("Building your pathway..."):
             try:
                 st.session_state["pathway"] = build_pathway(profile)
@@ -393,9 +448,28 @@ if st.session_state.get("pathway_error"):
     st.error("We couldn't build your pathway just now. Please try again in a moment.")
     with st.expander("Technical details"):
         st.write(st.session_state["pathway_error"])
+    if os.path.exists("demo_pathway.json"):
+        if st.button("Show a saved example instead"):
+            with open("demo_pathway.json", encoding="utf-8") as f:
+                st.session_state["pathway"] = json.load(f)
+            st.session_state["pathway_is_saved"] = True
+            st.session_state.pop("pathway_error", None)
+            st.rerun()
 
 if st.session_state.get("pathway"):
+    if st.session_state.get("pathway_is_saved"):
+        st.info("This is a saved example for our demo learner, not a live result.")
     render_pathway(st.session_state["pathway"])
+    if not st.session_state.get("pathway_is_saved"):
+        with st.expander("Team tools"):
+            st.caption("Save a good result as the demo fallback.")
+            st.download_button(
+                "Download this pathway as demo_pathway.json",
+                data=json.dumps(
+                    st.session_state["pathway"], indent=2, ensure_ascii=False),
+                file_name="demo_pathway.json",
+                mime="application/json",
+            )
 
 if "profile" in st.session_state:
     with st.expander("See your profile"):

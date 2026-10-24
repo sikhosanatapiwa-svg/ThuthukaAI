@@ -338,16 +338,16 @@
     "pays_learner": "Bursary and loan funding, subject to eligibility.",
     "delivery": "campus",
     "location": "Public universities and TVET colleges",
-    "timing": "The 2027 cycle is open and closes on 18 November 2026, per a government news service.",
+    "timing": "The 2027 cycle opened on 18 September 2026 and closes on 31 October 2026. NSFAS has said there will be no extension.",
     "demo_opens": "2026-09-18",
-    "demo_deadline": "2026-11-18",
+    "demo_deadline": "2026-10-31",
     "dates_are_sample": false,
     "accreditation": "",
     "link": "https://www.nsfas.org.za",
-    "source_url": "https://www.sanews.gov.za/node/84420",
-    "last_verified": "2026-10-22",
-    "official_site_confirmed": false,
-    "notes": "One news outlet gave a different closing date, so confirm the date on nsfas.org.za before relying on it."
+    "source_url": "https://www.nsfas.org.za",
+    "last_verified": "2026-10-24",
+    "official_site_confirmed": true,
+    "notes": "An earlier government news report quoted 18 November 2026 from the launch event. NSFAS's own page lists 31 October 2026, and NSFAS says there will be no extension. Applying for admission to a university or TVET college is a separate step from applying for NSFAS funding."
   },
   {
     "id": "fnb-app-of-the-year-hackathon-2026",
